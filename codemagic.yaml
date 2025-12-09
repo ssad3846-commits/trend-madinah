@@ -1,0 +1,22 @@
+workflows:
+  ios-build:
+    name: Build iOS App
+    instance_type: mac_mini_m1
+    max_build_duration: 60
+    environment:
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.saad.trendmadinah
+      node: 18
+    scripts:
+      - npm install
+      - npm run build
+      - npx cap sync ios
+      - cd ios/App && pod install
+      - xcode-project build-ipa --workspace ios/App/App.xcworkspace --scheme App
+    artifacts:
+      - build/ios/ipa/*.ipa
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
