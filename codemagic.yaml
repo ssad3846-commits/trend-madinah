@@ -1,19 +1,30 @@
 workflows:
-  ios-build:
-    name: Build iOS App
+  capacitor_ios_release:
+    name: Capacitor iOS Release
     instance_type: mac_mini_m1
     max_build_duration: 60
     environment:
+      node: 18.18.0
+      xcode: 15.0
       ios_signing:
         distribution_type: app_store
         bundle_identifier: com.saad.trendmadinah
-      node: 18
     scripts:
-      - npm install
-      - npm run build
-      - npx cap sync ios
-      - cd ios/App && pod install
-      - xcode-project build-ipa --workspace ios/App/App.xcworkspace --scheme App
+      - name: Install npm dependencies
+        script: npm ci
+      - name: Build web assets
+        script: npm run build
+      - name: Sync Capacitor iOS project
+        script: npx cap sync ios
+      - name: Install CocoaPods
+        script: |
+          cd ios/App
+          pod install
+      - name: Build IPA
+        script: |
+          xcode-project build-ipa \
+            --workspace ios/App/App.xcworkspace \
+            --scheme App
     artifacts:
       - build/ios/ipa/*.ipa
     publishing:
