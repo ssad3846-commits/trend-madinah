@@ -75,12 +75,9 @@ workflows:
           echo "Profile UUID: $PROFILE_UUID"
           echo "Profile Name: $PROFILE_NAME"
           
-          cat > ios/App/Signing.xcconfig << XCCONFIG
-          CODE_SIGN_STYLE = Manual
-          DEVELOPMENT_TEAM = $TEAM_ID
-          PROVISIONING_PROFILE_SPECIFIER = $PROFILE_NAME
-          CODE_SIGN_IDENTITY = iPhone Distribution
-          XCCONFIG
+          cd ios/App
+          sed -i '' "s/CODE_SIGN_STYLE = Automatic;/CODE_SIGN_STYLE = Manual;\n\t\t\t\tDEVELOPMENT_TEAM = $TEAM_ID;\n\t\t\t\tPROVISIONING_PROFILE_SPECIFIER = \"$PROFILE_NAME\";/g" App.xcodeproj/project.pbxproj
+          cd ../..
           
           echo "$TEAM_ID" > /tmp/TEAM_ID
           echo "$PROFILE_NAME" > /tmp/PROFILE_NAME
@@ -117,7 +114,6 @@ workflows:
             -configuration Release \
             -destination 'generic/platform=iOS' \
             -archivePath build/App.xcarchive \
-            -xcconfig ios/App/Signing.xcconfig \
             archive
           
           xcodebuild -exportArchive \
