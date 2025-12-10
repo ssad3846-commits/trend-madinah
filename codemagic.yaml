@@ -66,7 +66,6 @@ workflows:
           
           PROFILES_HOME="$HOME/Library/MobileDevice/Provisioning Profiles"
           PROFILE_PATH=$(find "$PROFILES_HOME" -name "*.mobileprovision" | head -1)
-          echo "Profile path: $PROFILE_PATH"
           
           TEAM_ID=$(security cms -D -i "$PROFILE_PATH" | plutil -extract TeamIdentifier.0 raw -)
           PROFILE_UUID=$(security cms -D -i "$PROFILE_PATH" | plutil -extract UUID raw -)
@@ -76,18 +75,22 @@ workflows:
           echo "Profile UUID: $PROFILE_UUID"
           echo "Profile Name: $PROFILE_NAME"
           
-          cd ios/App
-          sed -i '' "s/DEVELOPMENT_TEAM = \"\";/DEVELOPMENT_TEAM = $TEAM_ID;/g" App.xcodeproj/project.pbxproj
-          sed -i '' "s/DEVELOPMENT_TEAM = ;/DEVELOPMENT_TEAM = $TEAM_ID;/g" App.xcodeproj/project.pbxproj
-          sed -i '' 's/CODE_SIGN_STYLE = Automatic;/CODE_SIGN_STYLE = Manual;/g' App.xcodeproj/project.pbxproj
-          sed -i '' "s/PROVISIONING_PROFILE_SPECIFIER = \"\";/PROVISIONING_PROFILE_SPECIFIER = \"$PROFILE_NAME\";/g" App.xcodeproj/project.pbxproj
-          cd ../..
+          cat > ios/App/Signing.xcconfig << XCCONFIG
+          CODE_SIGN_STYLE = Manual
+          DEVELOPMENT_TEAM = $TEAM_ID
+          PROVISIONING_PROFILE_SPECIFIER = $PROFILE_NAME
+          CODE_SIGN_IDENTITY = iPhone Distribution
+          XCCONFIG
+          
+          echo "$TEAM_ID" > /tmp/TEAM_ID
+          echo "$PROFILE_NAME" > /tmp/PROFILE_NAME
       - name: Build IPA
         script: |
-          PROFILES_HOME="$HOME/Library/MobileDevice/Provisioning Profiles"
-          PROFILE_PATH=$(find "$PROFILES_HOME" -name "*.mobileprovision" | head -1)
-          TEAM_ID=$(security cms -D -i "$PROFILE_PATH" | plutil -extract TeamIdentifier.0 raw -)
-          PROFILE_NAME=$(security cms -D -i "$PROFILE_PATH" | plutil -extract Name raw -)
+          TEAM_ID=$(cat /tmp/TEAM_ID)
+          PROFILE_NAME=$(cat /tmp/PROFILE_NAME)
+          
+          echo "Using Team ID: $TEAM_ID"
+          echo "Using Profile: $PROFILE_NAME"
           
           cat > exportOptions.plist << EOF
           <?xml version="1.0" encoding="UTF-8"?>
@@ -114,9 +117,7 @@ workflows:
             -configuration Release \
             -destination 'generic/platform=iOS' \
             -archivePath build/App.xcarchive \
-            CODE_SIGN_STYLE=Manual \
-            DEVELOPMENT_TEAM="$TEAM_ID" \
-            PROVISIONING_PROFILE_SPECIFIER="$PROFILE_NAME" \
+            -xcconfig ios/App/Signing.xcconfig \
             archive
           
           xcodebuild -exportArchive \
