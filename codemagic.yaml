@@ -13,17 +13,21 @@ workflows:
     scripts:
       - name: Extract zip files
         script: |
-          # Extract all zip files to their respective directories
           unzip -o client.zip -d .
           unzip -o server.zip -d .
           unzip -o shared.zip -d .
           unzip -o ios.zip -d .
-          # List directories to verify
           ls -la
       - name: Install npm dependencies
         script: npm ci
       - name: Build web assets
         script: |
+          # Fix PostCSS config for Tailwind v4
+          cat > postcss.config.js << 'EOF'
+          export default {
+            plugins: {}
+          }
+          EOF
           # Create simplified vite config for production build
           cat > vite.build.config.js << 'EOF'
           import { defineConfig } from "vite";
