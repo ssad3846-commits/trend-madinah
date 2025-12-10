@@ -22,6 +22,9 @@ workflows:
         script: npm ci
       - name: Build web assets
         script: |
+          # Create attached_assets folder with placeholder logo
+          mkdir -p attached_assets/generated_images
+          echo "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==" | base64 -d > attached_assets/generated_images/minimalist_islamic_geometric_logo_green_and_gold.png
           # Fix PostCSS config for Tailwind v4
           cat > postcss.config.js << 'EOF'
           export default {
@@ -32,10 +35,11 @@ workflows:
           cat > vite.build.config.js << 'EOF'
           import { defineConfig } from "vite";
           import react from "@vitejs/plugin-react";
+          import tailwindcss from "@tailwindcss/vite";
           import path from "path";
           
           export default defineConfig({
-            plugins: [react()],
+            plugins: [react(), tailwindcss()],
             resolve: {
               alias: {
                 "@": path.resolve(process.cwd(), "client", "src"),
