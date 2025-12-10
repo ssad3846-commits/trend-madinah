@@ -22,16 +22,13 @@ workflows:
         script: npm ci
       - name: Build web assets
         script: |
-          # Create attached_assets folder with placeholder logo
           mkdir -p attached_assets/generated_images
           echo "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==" | base64 -d > attached_assets/generated_images/minimalist_islamic_geometric_logo_green_and_gold.png
-          # Fix PostCSS config for Tailwind v4
           cat > postcss.config.js << 'EOF'
           export default {
             plugins: {}
           }
           EOF
-          # Create simplified vite config for production build
           cat > vite.build.config.js << 'EOF'
           import { defineConfig } from "vite";
           import react from "@vitejs/plugin-react";
@@ -56,11 +53,14 @@ workflows:
           EOF
           npx vite build --config vite.build.config.js
       - name: Sync Capacitor iOS project
-        script: npx cap sync ios
+        script: |
+          sed -i '' "s/platform :ios, '14.0'/platform :ios, '15.0'/" ios/App/Podfile
+          npx cap sync ios
       - name: Install CocoaPods
         script: |
           cd ios/App
-          pod install
+          sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = 14.0/IPHONEOS_DEPLOYMENT_TARGET = 15.0/g' App.xcodeproj/project.pbxproj
+          pod install --repo-update
       - name: Set up code signing
         script: |
           keychain initialize
