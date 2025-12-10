@@ -1,7 +1,7 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.saad.trendmadinah',
+  appId: 'trendmadinah',
   appName: 'ترند المدينة',
   webDir: 'dist/public',
   server: {
