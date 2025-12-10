@@ -58,12 +58,11 @@ workflows:
           cd ios/App
           sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = 14.0/IPHONEOS_DEPLOYMENT_TARGET = 15.0/g' App.xcodeproj/project.pbxproj
           pod install --repo-update
-            - name: Set up code signing
+      - name: Set up code signing
         script: |
           keychain initialize
           app-store-connect fetch-signing-files "$BUNDLE_ID" --type IOS_APP_STORE --create
           keychain add-certificates
-          # Create export options plist
           cat > ~/export_options.plist << 'PLIST'
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -77,12 +76,10 @@ workflows:
           </plist>
           PLIST
           xcode-project use-profiles --project ios/App/App.xcodeproj
-            - name: Build IPA
+      - name: Build IPA
         script: |
-          # Extract Team ID from certificate
           TEAM_ID=$(security find-identity -v -p codesigning | head -1 | grep -o '"[^"]*"' | head -1 | tr -d '"' | sed 's/.*(\(.*\))/\1/')
           if [ -z "$TEAM_ID" ]; then
-            # Try from provisioning profile
             PROFILES_HOME="$HOME/Library/MobileDevice/Provisioning Profiles"
             PROFILE=$(find "$PROFILES_HOME" -name "*.mobileprovision" | head -1)
             if [ -n "$PROFILE" ]; then
@@ -90,14 +87,10 @@ workflows:
             fi
           fi
           echo "Team ID: $TEAM_ID"
-          
-          # Update Xcode project with Team ID
           cd ios/App
           sed -i '' "s/DEVELOPMENT_TEAM = \"\"/DEVELOPMENT_TEAM = \"$TEAM_ID\"/g" App.xcodeproj/project.pbxproj
           sed -i '' "s/DEVELOPMENT_TEAM = ;/DEVELOPMENT_TEAM = \"$TEAM_ID\";/g" App.xcodeproj/project.pbxproj
           cd ../..
-          
-          # Use xcode-project to build
           xcode-project build-ipa \
             --workspace ios/App/App.xcworkspace \
             --scheme App
