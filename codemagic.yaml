@@ -8,6 +8,7 @@ workflows:
     environment:
       node: 20.19.0
       xcode: latest
+      cocoapods: default
       vars:
         BUNDLE_ID: "trendmadinah"
     scripts:
@@ -58,71 +59,22 @@ workflows:
           cd ios/App
           sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = 14.0/IPHONEOS_DEPLOYMENT_TARGET = 15.0/g' App.xcodeproj/project.pbxproj
           pod install --repo-update
-      - name: Set up code signing
+      - name: Set up keychain and certificates
         script: |
           keychain initialize
           app-store-connect fetch-signing-files "$BUNDLE_ID" --type IOS_APP_STORE --create
           keychain add-certificates
-          
-          PROFILES_HOME="$HOME/Library/MobileDevice/Provisioning Profiles"
-          PROFILE_PATH=$(find "$PROFILES_HOME" -name "*.mobileprovision" | head -1)
-          
-          TEAM_ID=$(security cms -D -i "$PROFILE_PATH" | plutil -extract TeamIdentifier.0 raw -)
-          PROFILE_UUID=$(security cms -D -i "$PROFILE_PATH" | plutil -extract UUID raw -)
-          PROFILE_NAME=$(security cms -D -i "$PROFILE_PATH" | plutil -extract Name raw -)
-          
-          echo "Team ID: $TEAM_ID"
-          echo "Profile UUID: $PROFILE_UUID"  
-          echo "Profile Name: $PROFILE_NAME"
-          
-          echo "$TEAM_ID" > /tmp/TEAM_ID
-          echo "$PROFILE_NAME" > /tmp/PROFILE_NAME
-          echo "$PROFILE_UUID" > /tmp/PROFILE_UUID
+      - name: Set up code signing settings on Xcode project
+        script: xcode-project use-profiles
       - name: Build IPA
         script: |
-          TEAM_ID=$(cat /tmp/TEAM_ID)
-          PROFILE_NAME=$(cat /tmp/PROFILE_NAME)
-          PROFILE_UUID=$(cat /tmp/PROFILE_UUID)
-          
-          echo "Building with:"
-          echo "  Team ID: $TEAM_ID"
-          echo "  Profile: $PROFILE_NAME"
-          echo "  UUID: $PROFILE_UUID"
-          
-          cat > exportOptions.plist << PLISTEOF
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-              <key>method</key>
-              <string>app-store</string>
-              <key>teamID</key>
-              <string>$TEAM_ID</string>
-              <key>signingStyle</key>
-              <string>manual</string>
-              <key>provisioningProfiles</key>
-              <dict>
-                  <key>$BUNDLE_ID</key>
-                  <string>$PROFILE_NAME</string>
-              </dict>
-          </dict>
-          </plist>
-          PLISTEOF
-          
-          xcodebuild -workspace ios/App/App.xcworkspace \
-            -scheme App \
-            -configuration Release \
-            -destination 'generic/platform=iOS' \
-            -archivePath build/App.xcarchive \
-            CODE_SIGN_STYLE="Manual" \
-            DEVELOPMENT_TEAM="$TEAM_ID" \
-            PROVISIONING_PROFILE_SPECIFIER="$PROFILE_NAME" \
-            CODE_SIGN_IDENTITY="iPhone Distribution" \
-            archive
-          
-          xcodebuild -exportArchive \
-            -archivePath build/App.xcarchive \
-            -exportOptionsPlist exportOptions.plist \
-            -exportPath build/ios/ipa
+          xcode-project build-ipa \
+            --workspace "ios/App/App.xcworkspace" \
+            --scheme "App"
     artifacts:
       - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
