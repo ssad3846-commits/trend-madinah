@@ -1,98 +1,41 @@
-workflows:
-  capacitor_ios_release:
-    name: Capacitor iOS Release
-    instance_type: mac_mini_m1
-    max_build_duration: 60
-    integrations:
-      app_store_connect: Codemagic
-    environment:
-      node: 20.19.0
-      xcode: latest
-      vars:
-        BUNDLE_ID: "trendmadinah"
-    scripts:
-      - name: Extract zip files
-        script: |
-          unzip -o client.zip -d .
-          unzip -o server.zip -d .
-          unzip -o shared.zip -d .
-          unzip -o ios.zip -d .
-          ls -la
-      - name: Install npm dependencies
-        script: npm ci
-      - name: Build web assets
-        script: |
-          mkdir -p attached_assets/generated_images
-          echo "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==" | base64 -d > attached_assets/generated_images/minimalist_islamic_geometric_logo_green_and_gold.png
-          cat > postcss.config.js << 'EOF'
-          export default {
-            plugins: {}
-          }
-          EOF
-          cat > vite.build.config.js << 'EOF'
-          import { defineConfig } from "vite";
-          import react from "@vitejs/plugin-react";
-          import tailwindcss from "@tailwindcss/vite";
-          import path from "path";
-          
-          export default defineConfig({
-            plugins: [react(), tailwindcss()],
-            resolve: {
-              alias: {
-                "@": path.resolve(process.cwd(), "client", "src"),
-                "@shared": path.resolve(process.cwd(), "shared"),
-                "@assets": path.resolve(process.cwd(), "attached_assets"),
-              },
-            },
-            root: path.resolve(process.cwd(), "client"),
-            build: {
-              outDir: path.resolve(process.cwd(), "dist/public"),
-              emptyOutDir: true,
-            },
-          });
-          EOF
-          npx vite build --config vite.build.config.js
-      - name: Sync Capacitor iOS project
-        script: |
-          sed -i '' "s/platform :ios, '14.0'/platform :ios, '15.0'/" ios/App/Podfile
-          npx cap sync ios
-      - name: Install CocoaPods
-        script: |
-          cd ios/App
-          sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = 14.0/IPHONEOS_DEPLOYMENT_TARGET = 15.0/g' App.xcodeproj/project.pbxproj
-          pod install --repo-update
-      - name: Set up code signing
-        script: |
-          keychain initialize
-          app-store-connect fetch-signing-files "$BUNDLE_ID" --type IOS_APP_STORE --create
-          keychain add-certificates
-          xcode-project use-profiles --project ios/App/App.xcodeproj
       - name: Build IPA
         script: |
-          cat > exportOptions.plist << 'PLIST'
+          # Get Team ID from provisioning profile
+          PROFILES_HOME="$HOME/Library/MobileDevice/Provisioning Profiles"
+          PROFILE=$(find "$PROFILES_HOME" -name "*.mobileprovision" | head -1)
+          TEAM_ID=$(security cms -D -i "$PROFILE" | grep -A1 "<key>TeamIdentifier</key>" | tail -1 | sed 's/.*<string>\(.*\)<\/string>.*/\1/')
+          echo "Using Team ID: $TEAM_ID"
+          
+          # Create export options plist with Team ID
+          cat > exportOptions.plist << EOF
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
           <plist version="1.0">
           <dict>
               <key>method</key>
               <string>app-store</string>
+              <key>teamID</key>
+              <string>$TEAM_ID</string>
               <key>uploadSymbols</key>
               <true/>
               <key>signingStyle</key>
               <string>automatic</string>
           </dict>
           </plist>
-          PLIST
+          EOF
+          
+          # Build archive with Team ID
           xcodebuild -workspace ios/App/App.xcworkspace \
             -scheme App \
             -configuration Release \
             -destination 'generic/platform=iOS' \
             -archivePath build/App.xcarchive \
             CODE_SIGN_STYLE=Automatic \
+            DEVELOPMENT_TEAM="$TEAM_ID" \
             archive
+          
+          # Export IPA
           xcodebuild -exportArchive \
             -archivePath build/App.xcarchive \
             -exportOptionsPlist exportOptions.plist \
             -exportPath build/ios/ipa
-    artifacts:
-      - build/ios/ipa/*.ipa
