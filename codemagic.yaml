@@ -7,7 +7,7 @@ workflows:
       app_store_connect: Codemagic
     environment:
       node: 18.18.0
-      xcode: 15.0
+      xcode: latest
       vars:
         BUNDLE_ID: "trendmadinah"
     scripts:
