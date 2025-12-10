@@ -14,9 +14,9 @@ workflows:
       - name: Install npm dependencies
         script: npm ci
       - name: Build web assets
-        script: npm run build
-      - name: Sync Capacitor iOS project
         script: npx vite build
+      - name: Sync Capacitor iOS project
+        script: npx cap sync ios
       - name: Install CocoaPods
         script: |
           cd ios/App
