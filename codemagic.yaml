@@ -15,9 +15,29 @@ workflows:
         script: npm ci
       - name: Build web assets
         script: |
-          # Build client assets with vite
-          cd client
-          npx vite build --outDir ../dist/public
+          # Create simplified vite config for production build
+          cat > vite.build.config.js << 'EOF'
+          import { defineConfig } from "vite";
+          import react from "@vitejs/plugin-react";
+          import path from "path";
+          
+          export default defineConfig({
+            plugins: [react()],
+            resolve: {
+              alias: {
+                "@": path.resolve(process.cwd(), "client", "src"),
+                "@shared": path.resolve(process.cwd(), "shared"),
+                "@assets": path.resolve(process.cwd(), "attached_assets"),
+              },
+            },
+            root: path.resolve(process.cwd(), "client"),
+            build: {
+              outDir: path.resolve(process.cwd(), "dist/public"),
+              emptyOutDir: true,
+            },
+          });
+          EOF
+          npx vite build --config vite.build.config.js
       - name: Sync Capacitor iOS project
         script: npx cap sync ios
       - name: Install CocoaPods
