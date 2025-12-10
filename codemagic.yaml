@@ -75,9 +75,15 @@ workflows:
           echo "Profile UUID: $PROFILE_UUID"
           echo "Profile Name: $PROFILE_NAME"
           
-          cd ios/App
-          perl -i -pe "s/CODE_SIGN_STYLE = Automatic;/CODE_SIGN_STYLE = Manual;\n\t\t\t\tDEVELOPMENT_TEAM = $TEAM_ID;\n\t\t\t\tPROVISIONING_PROFILE_SPECIFIER = \"$PROFILE_NAME\";/g" App.xcodeproj/project.pbxproj
-          cd ../..
+          ruby -e "
+          content = File.read('ios/App/App.xcodeproj/project.pbxproj')
+          team_id = ENV['TEAM_ID'] || '$TEAM_ID'
+          profile_name = ENV['PROFILE_NAME'] || '$PROFILE_NAME'
+          replacement = \"CODE_SIGN_STYLE = Manual;\n\t\t\t\tDEVELOPMENT_TEAM = #{team_id};\n\t\t\t\tPROVISIONING_PROFILE_SPECIFIER = \\\"#{profile_name}\\\";\"
+          content.gsub!('CODE_SIGN_STYLE = Automatic;', replacement)
+          File.write('ios/App/App.xcodeproj/project.pbxproj', content)
+          puts 'Updated project with Team ID: ' + team_id
+          "
           
           echo "$TEAM_ID" > /tmp/TEAM_ID
           echo "$PROFILE_NAME" > /tmp/PROFILE_NAME
