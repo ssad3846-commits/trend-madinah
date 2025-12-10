@@ -72,30 +72,24 @@ workflows:
           PROFILE_NAME=$(security cms -D -i "$PROFILE_PATH" | plutil -extract Name raw -)
           
           echo "Team ID: $TEAM_ID"
-          echo "Profile UUID: $PROFILE_UUID"
+          echo "Profile UUID: $PROFILE_UUID"  
           echo "Profile Name: $PROFILE_NAME"
-          
-          ruby -e "
-          content = File.read('ios/App/App.xcodeproj/project.pbxproj')
-          team_id = ENV['TEAM_ID'] || '$TEAM_ID'
-          profile_name = ENV['PROFILE_NAME'] || '$PROFILE_NAME'
-          replacement = \"CODE_SIGN_STYLE = Manual;\n\t\t\t\tDEVELOPMENT_TEAM = #{team_id};\n\t\t\t\tPROVISIONING_PROFILE_SPECIFIER = \\\"#{profile_name}\\\";\"
-          content.gsub!('CODE_SIGN_STYLE = Automatic;', replacement)
-          File.write('ios/App/App.xcodeproj/project.pbxproj', content)
-          puts 'Updated project with Team ID: ' + team_id
-          "
           
           echo "$TEAM_ID" > /tmp/TEAM_ID
           echo "$PROFILE_NAME" > /tmp/PROFILE_NAME
+          echo "$PROFILE_UUID" > /tmp/PROFILE_UUID
       - name: Build IPA
         script: |
           TEAM_ID=$(cat /tmp/TEAM_ID)
           PROFILE_NAME=$(cat /tmp/PROFILE_NAME)
+          PROFILE_UUID=$(cat /tmp/PROFILE_UUID)
           
-          echo "Using Team ID: $TEAM_ID"
-          echo "Using Profile: $PROFILE_NAME"
+          echo "Building with:"
+          echo "  Team ID: $TEAM_ID"
+          echo "  Profile: $PROFILE_NAME"
+          echo "  UUID: $PROFILE_UUID"
           
-          cat > exportOptions.plist << EOF
+          cat > exportOptions.plist << PLISTEOF
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
           <plist version="1.0">
@@ -113,13 +107,17 @@ workflows:
               </dict>
           </dict>
           </plist>
-          EOF
+          PLISTEOF
           
           xcodebuild -workspace ios/App/App.xcworkspace \
             -scheme App \
             -configuration Release \
             -destination 'generic/platform=iOS' \
             -archivePath build/App.xcarchive \
+            CODE_SIGN_STYLE="Manual" \
+            DEVELOPMENT_TEAM="$TEAM_ID" \
+            PROVISIONING_PROFILE_SPECIFIER="$PROFILE_NAME" \
+            CODE_SIGN_IDENTITY="iPhone Distribution" \
             archive
           
           xcodebuild -exportArchive \
