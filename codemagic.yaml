@@ -6,7 +6,7 @@ workflows:
     integrations:
       app_store_connect: Codemagic
     environment:
-      node: 18.18.0
+      node: 20.19.0
       xcode: latest
       vars:
         BUNDLE_ID: "trendmadinah"
@@ -14,7 +14,10 @@ workflows:
       - name: Install npm dependencies
         script: npm ci
       - name: Build web assets
-        script: npx vite build
+        script: |
+          # Build client assets with vite
+          cd client
+          npx vite build --outDir ../dist/public
       - name: Sync Capacitor iOS project
         script: npx cap sync ios
       - name: Install CocoaPods
