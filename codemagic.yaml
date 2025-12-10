@@ -76,7 +76,7 @@ workflows:
           echo "Profile Name: $PROFILE_NAME"
           
           cd ios/App
-          sed -i '' "s/CODE_SIGN_STYLE = Automatic;/CODE_SIGN_STYLE = Manual;\n\t\t\t\tDEVELOPMENT_TEAM = $TEAM_ID;\n\t\t\t\tPROVISIONING_PROFILE_SPECIFIER = \"$PROFILE_NAME\";/g" App.xcodeproj/project.pbxproj
+          perl -i -pe "s/CODE_SIGN_STYLE = Automatic;/CODE_SIGN_STYLE = Manual;\n\t\t\t\tDEVELOPMENT_TEAM = $TEAM_ID;\n\t\t\t\tPROVISIONING_PROFILE_SPECIFIER = \"$PROFILE_NAME\";/g" App.xcodeproj/project.pbxproj
           cd ../..
           
           echo "$TEAM_ID" > /tmp/TEAM_ID
