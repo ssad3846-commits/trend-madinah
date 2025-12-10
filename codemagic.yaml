@@ -11,6 +11,15 @@ workflows:
       vars:
         BUNDLE_ID: "trendmadinah"
     scripts:
+      - name: Extract zip files
+        script: |
+          # Extract all zip files to their respective directories
+          unzip -o client.zip -d .
+          unzip -o server.zip -d .
+          unzip -o shared.zip -d .
+          unzip -o ios.zip -d .
+          # List directories to verify
+          ls -la
       - name: Install npm dependencies
         script: npm ci
       - name: Build web assets
