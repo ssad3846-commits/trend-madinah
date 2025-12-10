@@ -63,11 +63,9 @@ workflows:
         script: |
           keychain initialize
           
-          # Generate a new private key for certificate creation
           openssl genrsa -out /tmp/cert_key.pem 2048
           export CERTIFICATE_PRIVATE_KEY=$(cat /tmp/cert_key.pem)
           
-          # Fetch signing files with auto-create using the private key
           app-store-connect fetch-signing-files "$BUNDLE_ID" \
             --type IOS_APP_STORE \
             --create \
@@ -75,22 +73,40 @@ workflows:
             --strict-match-identifier
           
           keychain add-certificates
-      - name: Set up code signing settings on Xcode project
-        script: |
-          xcode-project use-profiles --project "ios/App/App.xcodeproj" --export-options-plist /tmp/export_options.plist
-          cat /tmp/export_options.plist || true
-      - name: Build IPA
-        script: |
-          # Get profile info
+          
+          # Get profile info and save for later
           PROFILES_HOME="$HOME/Library/MobileDevice/Provisioning Profiles"
           PROFILE_PATH=$(find "$PROFILES_HOME" -name "*.mobileprovision" | head -1)
           PROFILE_UUID=$(security cms -D -i "$PROFILE_PATH" | plutil -extract UUID raw -)
           TEAM_ID=$(security cms -D -i "$PROFILE_PATH" | plutil -extract TeamIdentifier.0 raw -)
           PROFILE_NAME=$(security cms -D -i "$PROFILE_PATH" | plutil -extract Name raw -)
           
-          echo "Using Profile UUID: $PROFILE_UUID"
-          echo "Using Team ID: $TEAM_ID"
-          echo "Using Profile Name: $PROFILE_NAME"
+          echo "$TEAM_ID" > /tmp/TEAM_ID
+          echo "$PROFILE_NAME" > /tmp/PROFILE_NAME
+          echo "$PROFILE_UUID" > /tmp/PROFILE_UUID
+          
+          echo "Team ID: $TEAM_ID"
+          echo "Profile Name: $PROFILE_NAME"
+          echo "Profile UUID: $PROFILE_UUID"
+      - name: Configure code signing for App target only
+        script: |
+          TEAM_ID=$(cat /tmp/TEAM_ID)
+          PROFILE_NAME=$(cat /tmp/PROFILE_NAME)
+          
+          cd ios/App
+          
+          # Disable code signing for Pods project targets
+          xcode-project use-profiles --project Pods/Pods.xcodeproj || true
+          
+          # Set App target to manual signing
+          xcode-project use-profiles --project App.xcodeproj
+          
+          # Disable signing on Pods targets by setting CODE_SIGNING_ALLOWED=NO
+          /usr/libexec/PlistBuddy -c "Set :objects:*:buildSettings:CODE_SIGNING_ALLOWED NO" Pods/Pods.xcodeproj/project.pbxproj 2>/dev/null || true
+      - name: Build IPA
+        script: |
+          TEAM_ID=$(cat /tmp/TEAM_ID)
+          PROFILE_NAME=$(cat /tmp/PROFILE_NAME)
           
           # Create export options plist
           cat > /tmp/export_options.plist << PLISTEOF
@@ -113,21 +129,13 @@ workflows:
           </plist>
           PLISTEOF
           
-          xcodebuild -workspace ios/App/App.xcworkspace \
-            -scheme App \
-            -configuration Release \
-            -destination 'generic/platform=iOS' \
-            -archivePath build/App.xcarchive \
-            DEVELOPMENT_TEAM="$TEAM_ID" \
-            CODE_SIGN_IDENTITY="Apple Distribution" \
-            "CODE_SIGN_STYLE[sdk=iphoneos*]=Manual" \
-            "PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]=$PROFILE_NAME" \
-            archive
-          
-          xcodebuild -exportArchive \
-            -archivePath build/App.xcarchive \
-            -exportOptionsPlist /tmp/export_options.plist \
-            -exportPath build/ios/ipa
+          xcode-project build-ipa \
+            --workspace ios/App/App.xcworkspace \
+            --scheme App \
+            --config Release \
+            --export-options-plist /tmp/export_options.plist \
+            --archive-directory build \
+            --ipa-directory build/ios/ipa
     artifacts:
       - build/ios/ipa/*.ipa
       - /tmp/xcodebuild_logs/*.log
