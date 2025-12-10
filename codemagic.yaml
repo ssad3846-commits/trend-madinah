@@ -59,10 +59,13 @@ workflows:
           cd ios/App
           sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = 14.0/IPHONEOS_DEPLOYMENT_TARGET = 15.0/g' App.xcodeproj/project.pbxproj
           pod install --repo-update
-      - name: Set up keychain and certificates
+      - name: Set up keychain and fetch signing files
         script: |
           keychain initialize
-          app-store-connect fetch-signing-files "$BUNDLE_ID" --type IOS_APP_STORE --create
+          app-store-connect fetch-signing-files "$BUNDLE_ID" \
+            --type IOS_APP_STORE \
+            --create \
+            --save
           keychain add-certificates
       - name: Set up code signing settings on Xcode project
         script: xcode-project use-profiles
